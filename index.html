@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>訪問者撃退システム</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        /* 警告アニメーション */
+        .alert-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.2);
+            animation: blink 1s infinite;
+            z-index: -1;
+            display: none;
+        }
+        @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+
+        h1 { font-size: 1.2rem; color: #ff4444; }
+
+        /* カメラコンテナ */
+        #camera-container {
+            width: 100%;
+            height: 250px;
+            background: #000;
+            border: 2px solid #ff4444;
+            margin-bottom: 20px;
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .recording-dot {
+            position: absolute;
+            top: 10px; left: 10px;
+            color: #ff4444;
+            font-weight: bold;
+            display: none;
+        }
+
+        /* カウントダウン表示 */
+        #countdown {
+            font-size: 5rem;
+            font-weight: bold;
+            color: #ff4444;
+            margin: 10px 0;
+            display: none;
+        }
+
+        /* ボタンデザイン */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin: 15px 0;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.95); }
+
+        .btn-emergency { background: #ff4444; color: white; }
+        .btn-line { background: #06C755; color: white; display: none; }
+        .btn-call { background: #4444ff; color: white; display: none; }
+        
+        #status-text { color: #aaa; font-size: 0.9rem; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="alert-bg" id="bg-alert"></div>
+
+<h1>⚠️ 防犯セキュリティシステム</h1>
+
+<div id="camera-container">
+    <div class="recording-dot" id="rec-label">● REC / サーバー転送中</div>
+    <video id="video" autoplay playsinline muted></video>
+</div>
+
+<div id="countdown">10</div>
+
+<button class="btn btn-emergency" id="start-btn" onclick="startEmergency()">🚨 警告カウントダウン開始</button>
+
+<button class="btn btn-line" id="line-btn" onclick="sendSOS()">📱 家族にLINEで位置送信</button>
+<a href="tel:110" class="btn btn-call" id="call-btn">📞 110番通報</a>
+
+<p id="status-text">ボタンを押すと証拠記録と通報準備を開始します</p>
+
+<script>
+    let count = 10;
+    let timer;
+
+    async function startEmergency() {
+        // 1. カメラ起動
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+            document.getElementById('video').srcObject = stream;
+            document.getElementById('rec-label').style.display = 'block';
+        } catch (err) {
+            console.error("Camera error:", err);
+        }
+
+        // 2. 演出開始
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('countdown').style.display = 'block';
+        document.getElementById('bg-alert').style.display = 'block';
+        
+        // 3. 音声警告
+        speak("不当な居座りを検知しました。10秒後に自動通報と現在地の送信を行います。直ちに退去してください。");
+
+        // 4. カウントダウン
+        timer = setInterval(() => {
+            count--;
+            document.getElementById('countdown').innerText = count;
+            
+            if (count <= 0) {
+                clearInterval(timer);
+                document.getElementById('countdown').innerText = "通報準備完了";
+                document.getElementById('line-btn').style.display = 'block';
+                document.getElementById('call-btn').style.display = 'block';
+                speak("カウントダウンが終了しました。通報ボタンを有効化します。");
+            }
+        }, 1000);
+    }
+
+    function speak(text) {
+        const uttr = new SpeechSynthesisUtterance(text);
+        uttr.lang = "ja-JP";
+        uttr.rate = 1.0;
+        window.speechSynthesis.speak(uttr);
+    }
+
+    function sendSOS() {
+        if (!navigator.geolocation) {
+            alert("位置情報が取得できません");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+            const message = `【緊急SOS】不審な訪問者がいます！助けてください。現在地：${mapUrl}`;
+            
+            // LINE URLスキーム
+            const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+            window.location.href = lineUrl;
+        }, () => {
+            alert("位置情報の取得に失敗しました。メッセージのみ送信します。");
+            const message = "【緊急SOS】不審な訪問者がいます！助けてください！";
+            window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+        });
+    }
+</script>
+
+</body>
+</html>
